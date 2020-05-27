@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-# 2014-07-11 DHT22.py
-
 import time
 import atexit
 
@@ -30,11 +27,9 @@ def update_mqtt_ep_msg(mqtt_msg_template, humidity, temperature):
 EP_TOPIC = "humidity"
 
 ### MQTT callbacks ###
-# The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
 
-# The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     print(msg.topic+" "+str(msg.payload))
 
@@ -276,27 +271,20 @@ class sensor:
 if __name__ == "__main__":
 
    import time
-
    import pigpio
-
    import DHT22
-
 
    # Intervals of about 2 seconds or less will eventually hang the DHT22.
    INTERVAL=3
    pi = pigpio.pi()
-   # s = DHT22.sensor(pi, 22, LED=16, power=8)
    s = DHT22.sensor(pi, 22)
    r = 0
 
-
-   #### Setup MQTT
    client = mqtt.Client()
    client.on_connect = on_connect
    client.on_message = on_message
    client.connect("10.169.109.56", 1883, 60)
    client.loop_start()
-   #### End Setup MQTT
 
    mqtt_ep_msg = load_msg_template("humidity_msg.json")
    print(mqtt_ep_msg)
@@ -314,10 +302,8 @@ if __name__ == "__main__":
       
       update_mqtt_ep_msg(mqtt_ep_msg, s.humidity(), s.temperature())
       client.publish(EP_TOPIC, json.dumps(mqtt_ep_msg))
-      #print("MESSAGE:\n{}".format(mqtt_ep_msg))
       next_reading += INTERVAL
-      time.sleep(next_reading-time.time()) # Overall INTERVAL second polling.
-
+      time.sleep(next_reading-time.time())
    client.loop_stop()
    s.cancel()
    pi.stop()
