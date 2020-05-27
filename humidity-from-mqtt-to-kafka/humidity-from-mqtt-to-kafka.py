@@ -46,14 +46,35 @@ def mqtt_on_message(client, userdata, msg):
     kafka_publish_message(global_producer, "humidity", msg.payload)
 
 def mqtt_on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
+    print("Connected to MQTT broker with result code "+str(rc))
     client.subscribe("humidity")
 
 if __name__ == '__main__':
+    import getopt
+    import sys
+    mqtt_host = "localhost"
+    mqtt_port = 1883
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'h:p:', ['mqtthost', 'mqttport'])
+        if len(opts) != 2:
+            print ('usage: python humidity-from-mqtt-to-kafka.py -h <mqtt host> -p <mqtt port>')
+            sys.exit(2)
+        else:
+            for opt, arg in opts:
+                if opt == '-h':
+                    mqtt_host = arg
+                else:
+                    mqtt_port= int(arg)
+
+    except getopt.GetoptError:
+        print ('usage: python humidity-from-mqtt-to-kafka.py -h <mqtt host> -p <mqtt port>')
+        sys.exit(-1)
+
     #### Setup MQTT
     client = mqtt.Client()
     client.on_connect = mqtt_on_connect
     client.on_message = mqtt_on_message
-    client.connect("10.169.109.56", 1883, 60)
+    print("Connecting to mqtt server from {}:{}...".format(mqtt_host, mqtt_port))
+    client.connect(mqtt_host, mqtt_port, 60)
     client.loop_forever()
 

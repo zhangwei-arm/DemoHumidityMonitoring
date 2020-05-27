@@ -2,7 +2,6 @@
 import time
 import atexit
 
-import pigpio
 import json
 import paho.mqtt.client as mqtt
 
@@ -12,7 +11,6 @@ def load_msg_template(file_path):
    try:
       with open(file_path) as f:
          msg_template = json.load(f)
-         #print(msg_template)
    except IOError:
       print("WARNING: Message Template File not accessible.")
 
@@ -21,14 +19,13 @@ def load_msg_template(file_path):
 ### Update mqtt endpoint message with humidity and temperature readings
 def update_mqtt_ep_msg(mqtt_msg_template, humidity, temperature):
     mqtt_msg_template["value"]["humidity"] = humidity
-    print(mqtt_msg_template)
 
 ### MQTT Topics ###
 EP_TOPIC = "humidity"
 
 ### MQTT callbacks ###
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
+    print("Connected to MQTT broker with result code "+str(rc))
 
 def on_message(client, userdata, msg):
     print(msg.topic+" "+str(msg.payload))
@@ -270,9 +267,29 @@ class sensor:
 
 if __name__ == "__main__":
 
+   import sys
    import time
    import pigpio
    import DHT22
+   import getopt
+
+   mqtt_host = "localhost"
+   mqtt_port = 1883
+   try:
+      opts, args = getopt.getopt(sys.argv[1:], 'h:p:', ['mqtthost', 'mqttport'])
+      if len(opts) != 2:
+         print ('usage: python humidity-collection.py -h <mqtt host> -p <mqtt port>')
+         sys.exit(-1)
+      else:
+         for opt, arg in opts:
+            if opt == '-h':
+               mqtt_host = arg
+            else:
+               mqtt_port= arg
+
+   except getopt.GetoptError:
+      print ('usage: python humidity-collection.py -h <mqtt host> -p <mqtt port>')
+      sys.exit(-1)
 
    # Intervals of about 2 seconds or less will eventually hang the DHT22.
    INTERVAL=3
@@ -280,15 +297,14 @@ if __name__ == "__main__":
    s = DHT22.sensor(pi, 22)
    r = 0
 
-   client = mqtt.Client()
-   client.on_connect = on_connect
-   client.on_message = on_message
-   client.connect("10.169.109.56", 1883, 60)
-   client.loop_start()
+   mqtt_client = mqtt.Client()
+   mqtt_client.on_connect = on_connect
+   mqtt_client.on_message = on_message
+   print("Connecting to mqtt server from {}:{}...".format(mqtt_host, mqtt_port))
+   mqtt_client.connect(mqtt_host, mqtt_port, 60)
+   mqtt_client.loop_start()
 
    mqtt_ep_msg = load_msg_template("humidity_msg.json")
-   print(mqtt_ep_msg)
-
    next_reading = time.time()
 
    while True:
@@ -301,10 +317,10 @@ if __name__ == "__main__":
          s.sensor_resets()))
       
       update_mqtt_ep_msg(mqtt_ep_msg, s.humidity(), s.temperature())
-      client.publish(EP_TOPIC, json.dumps(mqtt_ep_msg))
+      mqtt_client.publish(EP_TOPIC, json.dumps(mqtt_ep_msg))
       next_reading += INTERVAL
       time.sleep(next_reading-time.time())
-   client.loop_stop()
+   mqtt_client.loop_stop()
    s.cancel()
    pi.stop()
 
